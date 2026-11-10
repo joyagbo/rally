@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rally: promote your event in minutes</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+  <main class="layout">
+    <header class="hero">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Rally<span>.</span></h1>
+        <p class="sub">Enter your event once. Get a full set of posts, ready to edit.</p>
+      </div>
+    </header>
+
+    <aside class="side">
+      <div id="connectBar" class="card bar"><span class="small">Checking connection…</span></div>
+
+      <section id="channelsCard" class="card" hidden>
+        <h2><span class="step">1</span> Where should we post?</h2>
+        <div class="hint">Pick the channels for this campaign.</div>
+        <select id="orgSelect" class="org-select" hidden></select>
+        <div id="channelList" class="channel-list"></div>
+        <div class="bar top-gap">
+          <button type="button" id="refreshChannels" class="secondary">Refresh channels</button>
+          <span id="channelNote" class="small"></span>
+        </div>
+      </section>
+    </aside>
+
+    <div class="content">
+      <form id="form" class="card">
+        <h2><span class="step">2</span> Your event</h2>
+        <label for="title">Event name *</label>
+        <input id="title" required placeholder="Women in Tech Nasarawa Meetup">
+
+        <label for="description">One-line description</label>
+        <input id="description" placeholder="An evening of talks and networking for women building careers in tech.">
+
+        <div class="row">
+          <div>
+            <label for="startsLocal">Starts *</label>
+            <input id="startsLocal" type="datetime-local" required>
+          </div>
+          <div>
+            <label for="timezone">Timezone *</label>
+            <select id="timezone"></select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="venue">Venue</label>
+            <input id="venue" placeholder="Lafia Innovation Hub, or an online link">
+          </div>
+          <div>
+            <label for="link">Registration link</label>
+            <input id="link" type="url" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="speakers">Speakers</label>
+            <input id="speakers" placeholder="Amina Yusuf, Chidi Okafor">
+            <div class="hint">Separate names with commas</div>
+          </div>
+          <div>
+            <label for="hashtag">Hashtag</label>
+            <input id="hashtag" placeholder="#WomenInTech">
+          </div>
+        </div>
+
+        <button type="submit">Build my campaign</button>
+        <div id="error" class="error" role="alert"></div>
+      </form>
+
+      <section id="results" hidden>
+        <h2><span class="step">3</span> Review and schedule</h2>
+        <div id="summary"></div>
+        <button type="button" id="scheduleBtn" class="no-top-gap">Schedule</button>
+        <div id="scheduleMsg" role="status"></div>
+        <div id="posts" class="top-gap"></div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
