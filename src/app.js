@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import accountRoutes from './routes/account.js';
 import campaignRoutes from './routes/campaign.js';
+import pageRoutes from './routes/pages.js';
 
 // Safety net: log unexpected errors instead of letting one bad request stop the server.
 process.on('unhandledRejection', (err) => console.error('Unhandled error:', err));
@@ -22,6 +23,7 @@ app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '
 app.use(authRoutes);
 app.use(accountRoutes);
 app.use(campaignRoutes);
+app.use(pageRoutes);
 
 app.use(errorHandler);
 

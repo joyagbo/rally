@@ -12,6 +12,8 @@ export const config = {
   // Encrypts the login cookie and stored sessions. A random one is fine locally.
   sessionSecret: env.SESSION_SECRET || (isProd ? '' : crypto.randomBytes(32).toString('hex')),
   mongoUri: env.MONGODB_URI || '',
+  // Optional. Shown on the privacy page. Kept in settings so it never goes into the code.
+  contactEmail: (env.CONTACT_EMAIL || '').trim(),
   buffer: {
     clientId: env.BUFFER_CLIENT_ID || '',
     clientSecret: env.BUFFER_CLIENT_SECRET || '',
