@@ -35,19 +35,23 @@ router.get('/login', (req, res) => {
   res.redirect(url.toString());
 });
 
-const failPage = (res, status, message) =>
-  res.status(status).send(`<p>${message}</p><p><a href="/">Go back and try again</a></p>`);
+// When a login fails we send the user back to the app with a short reason code.
+// The page turns the code into a sentence from a fixed list (see public/js/connection.js).
+const loginFailed = (res, reason, detail) => {
+  console.warn(`Login failed (${reason})${detail ? `: ${detail}` : ''}`);
+  res.redirect(`/?login_error=${reason}`);
+};
 
 // Step 2: Buffer sends the user back here with a code. Swap it for tokens.
 router.get('/callback', async (req, res) => {
   try {
     const { code, state, error } = req.query;
-    if (error) return failPage(res, 403, `Buffer returned an error: ${String(error)}`);
+    if (error) return loginFailed(res, 'denied', String(error).slice(0, 40));
 
     const saved = decrypt(parseCookies(req.headers.cookie)[LOGIN_COOKIE]);
     clearCookie(res, LOGIN_COOKIE);
     if (!saved || saved.expires < Date.now() || saved.state !== state) {
-      return failPage(res, 403, 'This login attempt is invalid or expired.');
+      return loginFailed(res, 'expired', saved ? 'state mismatch or too old' : 'login cookie missing');
     }
 
     const { ok, data } = await tokenRequest({
@@ -56,7 +60,7 @@ router.get('/callback', async (req, res) => {
       redirect_uri: config.buffer.redirectUri,
       code_verifier: saved.verifier,
     });
-    if (!ok) return failPage(res, 502, 'Buffer did not accept the login. Please try again.');
+    if (!ok) return loginFailed(res, 'rejected', String(data?.error ?? 'no reason given').slice(0, 60));
 
     const session = {
       id: crypto.randomBytes(24).toString('base64url'),
@@ -68,8 +72,7 @@ router.get('/callback', async (req, res) => {
     setCookie(res, SESSION_COOKIE, session.id, SESSION_SECONDS);
     res.redirect('/');
   } catch (err) {
-    console.error('Login failed:', err.message);
-    failPage(res, err.status ?? 500, err.message);
+    loginFailed(res, err.status === 503 ? 'unreachable' : 'failed', err.message);
   }
 });
 

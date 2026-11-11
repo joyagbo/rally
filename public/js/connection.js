@@ -2,6 +2,29 @@ import { $, el, cap } from './dom.js';
 import { api } from './api.js';
 import { state, needsVideo, emit, on } from './state.js';
 
+// Sentences for each reason the server can give. The page never prints text from the address bar.
+const LOGIN_ERRORS = {
+  denied: 'The connection was cancelled. Connect again when you are ready.',
+  expired: 'That login took too long or was interrupted. Please connect again.',
+  rejected: 'Buffer did not accept the login. Please try again.',
+  unreachable: 'Rally could not reach Buffer. Check your internet connection and try again.',
+  failed: 'Something went wrong while connecting. Please try again.',
+};
+const WRONG_ADDRESS =
+  'Buffer sent you back to the wrong address, so the login could not finish. ' +
+  'If you run this app yourself, check that REDIRECT_URI ends with /callback in your settings and in your Buffer client.';
+
+// Reads the address bar once, then cleans it so a login code never stays in the browser history.
+function readLoginNotice() {
+  const params = new URLSearchParams(location.search);
+  let notice = '';
+  if (params.has('login_error')) notice = LOGIN_ERRORS[params.get('login_error')] || LOGIN_ERRORS.failed;
+  else if (params.has('code') && params.has('state')) notice = WRONG_ADDRESS;
+  if (location.search) history.replaceState(null, '', location.pathname);
+  return notice;
+}
+let loginNotice = '';
+
 // ---- The "Connected as ..." bar ----
 function renderConnection(message) {
   const bar = $('connectBar');
@@ -10,7 +33,11 @@ function renderConnection(message) {
   if (!state.connection.connected) {
     $('channelsCard').hidden = true;
     bar.append(
-      el('div', {}, message || 'Connect your Buffer account to choose channels and schedule posts.'),
+      el(
+        'div',
+        { class: message ? 'notice' : '' },
+        message || 'Connect your Buffer account to choose channels and schedule posts.'
+      ),
       el('a', { class: 'btn', href: '/login' }, 'Connect your Buffer account')
     );
   } else {
@@ -103,7 +130,7 @@ async function loadConnection() {
   if (status === 0) return renderConnection(data.error);
   if (status === 401 || !data.connected) {
     state.connection = { connected: false };
-    return renderConnection(ok ? '' : data.error);
+    return renderConnection(loginNotice || (ok ? '' : data.error));
   }
   state.connection = data;
   renderConnection();
@@ -128,5 +155,6 @@ export function initConnection() {
     state.connection = { connected: false };
     renderConnection(e.detail);
   });
+  loginNotice = readLoginNotice();
   loadConnection();
 }
