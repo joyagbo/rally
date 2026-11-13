@@ -21,13 +21,14 @@
   --paper: #f7f1e5; /* page background */
   --card: #fffdf7; /* panels and cards */
   --tint: #fbf4e4; /* post cards inside a panel */
-  --ink: #4a3b32; /* text, outlines, shadows */
+  --ink: #5b4636; /* text, outlines, shadows */
   --muted: #5f5447;
   --line: #d8cbb2; /* soft dividers */
 
   --accent: #ff5a36; /* coral: buttons */
   --accent-deep: #b3290e; /* coral used as text */
-  --sun: #ffd64d; /* yellow highlight */
+  --on-accent: #36271d; /* dark brown text on coral buttons (4.6:1 contrast) */
+  --sun: #ffb09a; /* soft coral highlight */
 
   --ok: #1a7447;
   --warn: #86480a;
@@ -35,8 +36,8 @@
 
   --radius: 18px;
   --radius-small: 12px;
-  --shadow: 6px 6px 0 var(--ink);
-  --shadow-small: 3px 3px 0 var(--ink);
+  --shadow: 3px 3px 0 var(--ink);
+  --shadow-small: 2px 2px 0 var(--ink);
 
   --font-heading: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --font-body:
@@ -234,7 +235,7 @@ h2 {
 @media (max-width: 560px) {
   .panel {
     padding: 16px;
-    box-shadow: 4px 4px 0 var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
   }
 }
 
@@ -344,7 +345,7 @@ a.btn {
   font: inherit;
   font-weight: 700;
   text-decoration: none;
-  color: var(--ink);
+  color: var(--on-accent);
   background: var(--accent);
   border: 2px solid var(--ink);
   border-radius: var(--radius-small);
@@ -357,11 +358,11 @@ a.btn {
 button:hover:not(:disabled),
 a.btn:hover {
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 button:active:not(:disabled),
 a.btn:active {
-  transform: translate(2px, 2px);
+  transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 var(--ink);
 }
 button:disabled {
