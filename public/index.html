@@ -1,127 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rally: promote your event in minutes</title>
-  <meta name="description" content="Enter your event once. Rally writes the posts and schedules them to your channels through Buffer.">
+  <meta name="description"
+    content="Enter your event once. Rally writes the posts and schedules them to your channels through Buffer.">
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="preload" href="/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
+
 <body>
 
-<header class="topbar">
-  <a class="brand" href="/">
-    <img src="/logo.svg" alt="" width="40" height="40">
-    <span>Rally<i>.</i></span>
-  </a>
-  <div id="connectBar" class="account"></div>
-</header>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <img src="/logo.svg" alt="" width="40" height="40">
+      <span>Rally<i>.</i></span>
+    </a>
+    <div id="connectBar" class="account"></div>
+  </header>
 
-<div id="noticeBar" class="notice-bar" role="alert" hidden></div>
+  <div id="noticeBar" class="notice-bar" role="alert" hidden></div>
 
-<main class="app">
-  <section class="intro">
-    <h1>Promote your event <mark>in minutes</mark>.</h1>
-    <p>Enter it once. Rally writes the posts and schedules them to your channels through Buffer.</p>
-  </section>
+  <main class="app">
+    <section class="intro">
+      <h1>Promote your event <mark>in minutes</mark>.</h1>
+      <p>Enter it once. Rally writes the posts and schedules them to your channels through Buffer.</p>
+    </section>
 
-  <!-- 1. The event -->
-  <section class="panel event-panel" aria-labelledby="eventHeading">
-    <h2 id="eventHeading"><span class="step">1</span> Your event</h2>
-    <form id="form" novalidate>
-      <label for="title">Event name *</label>
-      <input id="title" required placeholder="Women in Tech Nasarawa Meetup" autocomplete="off">
+    <!-- 1. The event -->
+    <section class="panel event-panel" aria-labelledby="eventHeading">
+      <h2 id="eventHeading"><span class="step">1</span> Your event</h2>
+      <form id="form" novalidate>
+        <label for="title">Event name *</label>
+        <input id="title" required placeholder="Women in Tech Nasarawa Meetup" autocomplete="off">
 
-      <label for="description">One-line description</label>
-      <input id="description" placeholder="An evening of talks and networking for women building careers in tech." autocomplete="off">
+        <label for="description">One-line description</label>
+        <input id="description" placeholder="An evening of talks and networking for women building careers in tech."
+          autocomplete="off">
 
-      <div class="row stack">
-        <div>
-          <label for="startsLocal">Starts *</label>
-          <input id="startsLocal" type="datetime-local" required>
+        <div class="row stack">
+          <div>
+            <label for="startsLocal">Starts *</label>
+            <input id="startsLocal" type="datetime-local" required>
+          </div>
+          <div>
+            <label for="timezone">Timezone *</label>
+            <select id="timezone"></select>
+          </div>
         </div>
-        <div>
-          <label for="timezone">Timezone *</label>
-          <select id="timezone"></select>
+
+        <div class="row">
+          <div>
+            <label for="venue">Venue</label>
+            <input id="venue" placeholder="Lafia Innovation Hub, or an online link" autocomplete="off">
+          </div>
+          <div>
+            <label for="link">Registration link</label>
+            <input id="link" type="url" placeholder="https://..." autocomplete="off">
+          </div>
         </div>
+
+        <div class="row">
+          <div>
+            <label for="speakers">Speakers</label>
+            <input id="speakers" placeholder="Amina Yusuf, Chidi Okafor" autocomplete="off">
+            <div class="hint">Separate names with commas</div>
+          </div>
+          <div>
+            <label for="hashtag">Hashtag</label>
+            <input id="hashtag" placeholder="#WomenInTech" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="image-field">
+          <label for="image">Event image (optional)</label>
+          <input id="image" type="file" accept="image/jpeg,image/png,image/webp">
+          <div class="hint">Added to every post. We resize it for you. Instagram needs one.</div>
+          <div id="imageBox" class="image-box" hidden>
+            <img id="imagePreview" alt="Preview of your event image">
+            <button type="button" id="imageRemove" class="secondary">Remove image</button>
+          </div>
+          <div id="imageNote" class="error" role="alert"></div>
+        </div>
+
+        <div id="error" class="error" role="alert"></div>
+      </form>
+    </section>
+
+    <!-- 2. The campaign (updates as you type) -->
+    <section class="panel campaign-panel" aria-labelledby="campaignHeading">
+      <h2 id="campaignHeading"><span class="step">2</span> Your campaign</h2>
+      <div id="summary" class="summary"></div>
+      <div id="posts" class="timeline"></div>
+    </section>
+
+    <!-- 3. Send -->
+    <section class="panel send-panel" aria-labelledby="sendHeading">
+      <h2 id="sendHeading"><span class="step">3</span> Send it</h2>
+
+      <div id="sendLocked">
+        <p class="lead">Connect your Buffer account to choose channels and schedule your posts.</p>
+        <a class="btn" href="/login">Connect Buffer</a>
       </div>
 
-      <div class="row">
-        <div>
-          <label for="venue">Venue</label>
-          <input id="venue" placeholder="Lafia Innovation Hub, or an online link" autocomplete="off">
+      <div id="sendReady" hidden>
+        <p class="lead">Where should these go?</p>
+        <select id="orgSelect" class="org-select" hidden></select>
+        <div id="channelList" class="chips"></div>
+        <div class="chip-tools">
+          <button type="button" id="refreshChannels" class="secondary">Refresh channels</button>
+          <span id="channelNote" class="small"></span>
         </div>
-        <div>
-          <label for="link">Registration link</label>
-          <input id="link" type="url" placeholder="https://..." autocomplete="off">
-        </div>
+        <button type="button" id="scheduleBtn">Schedule</button>
+        <div id="scheduleMsg" role="status"></div>
       </div>
+    </section>
+  </main>
 
-      <div class="row">
-        <div>
-          <label for="speakers">Speakers</label>
-          <input id="speakers" placeholder="Amina Yusuf, Chidi Okafor" autocomplete="off">
-          <div class="hint">Separate names with commas</div>
-        </div>
-        <div>
-          <label for="hashtag">Hashtag</label>
-          <input id="hashtag" placeholder="#WomenInTech" autocomplete="off">
-        </div>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a class="brand" href="/">
+          <img src="/logo.svg" alt="" width="32" height="32">
+          <span>Rally<i>.</i></span>
+        </a>
+        <p>Enter your event once. Rally writes the posts and schedules them through Buffer.</p>
       </div>
-
-      <div class="image-field">
-        <label for="image">Event image (optional)</label>
-        <input id="image" type="file" accept="image/jpeg,image/png,image/webp">
-        <div class="hint">Added to every post. We resize it for you. Instagram needs one.</div>
-        <div id="imageBox" class="image-box" hidden>
-          <img id="imagePreview" alt="Preview of your event image">
-          <button type="button" id="imageRemove" class="secondary">Remove image</button>
-        </div>
-        <div id="imageNote" class="error" role="alert"></div>
-      </div>
-
-      <div id="error" class="error" role="alert"></div>
-    </form>
-  </section>
-
-  <!-- 2. The campaign (updates as you type) -->
-  <section class="panel campaign-panel" aria-labelledby="campaignHeading">
-    <h2 id="campaignHeading"><span class="step">2</span> Your campaign</h2>
-    <div id="summary" class="summary"></div>
-    <div id="posts" class="timeline"></div>
-  </section>
-
-  <!-- 3. Send -->
-  <section class="panel send-panel" aria-labelledby="sendHeading">
-    <h2 id="sendHeading"><span class="step">3</span> Send it</h2>
-
-    <div id="sendLocked">
-      <p class="lead">Connect your Buffer account to choose channels and schedule your posts.</p>
-      <a class="btn" href="/login">Connect Buffer</a>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="/privacy">Privacy</a>
+      </nav>
     </div>
-
-    <div id="sendReady" hidden>
-      <p class="lead">Where should these go?</p>
-      <select id="orgSelect" class="org-select" hidden></select>
-      <div id="channelList" class="chips"></div>
-      <div class="chip-tools">
-        <button type="button" id="refreshChannels" class="secondary">Refresh channels</button>
-        <span id="channelNote" class="small"></span>
-      </div>
-      <button type="button" id="scheduleBtn">Schedule</button>
-      <div id="scheduleMsg" role="status"></div>
+    <div class="footer-note">
+      <span>Built on the Buffer API</span>
     </div>
-  </section>
-</main>
+  </footer>
 
-<footer class="site-footer">
-  Built on the Buffer API
-  &middot; <a href="/privacy">Privacy</a>
-</footer>
-
-<script type="module" src="/js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
+
 </html>

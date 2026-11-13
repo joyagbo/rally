@@ -612,16 +612,59 @@ button.secondary:hover:not(:disabled) {
    Footer and the privacy page
    ========================================================================== */
 .site-footer {
+  margin-top: 48px;
+  border-top: 2px solid var(--ink);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.footer-inner,
+.footer-note {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 clamp(16px, 4vw, 40px) 40px;
-  color: var(--muted);
-  font-size: 0.88rem;
+  padding-left: clamp(16px, 4vw, 40px);
+  padding-right: clamp(16px, 4vw, 40px);
+}
+.footer-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 28px;
+  padding-bottom: 20px;
+}
+.footer-brand p {
+  margin: 8px 0 0;
+  max-width: 340px;
+}
+.footer-brand .brand span {
+  font-size: 1.4rem;
+}
+.footer-links {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.footer-note {
+  padding-top: 14px;
+  padding-bottom: 24px;
+  font-size: 0.82rem;
+  text-align: center;
 }
 .site-footer a,
 .legal a {
   color: var(--accent-deep);
   text-underline-offset: 3px;
+}
+.site-footer .brand {
+  color: var(--ink);
+  text-decoration: none;
+}
+@media (max-width: 560px) {
+  .footer-inner {
+    flex-direction: column;
+    gap: 16px;
+  }
 }
 
 .legal {
