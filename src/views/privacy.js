@@ -2,19 +2,19 @@
 // contact address can come from the CONTACT_EMAIL setting and never lives in the code.
 
 const escapeHtml = (text) =>
-    String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // Only a plain-looking address is accepted. Anything else is ignored.
 const looksLikeEmail = (text) => /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(text);
 
 export function renderPrivacy(contactEmail = '') {
-    const email = looksLikeEmail(contactEmail) ? escapeHtml(contactEmail) : '';
-    const contact = email
-        ? `<h2>Questions</h2>
+  const email = looksLikeEmail(contactEmail) ? escapeHtml(contactEmail) : '';
+  const contact = email
+    ? `<h2>Questions</h2>
   <p>Write to <a href="mailto:${email}">${email}</a>.</p>`
-        : '';
+    : '';
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -42,6 +42,13 @@ export function renderPrivacy(contactEmail = '') {
     <li>
       <strong>Your Buffer account email, timezone and channel names</strong>, so Rally can show
       which account and channels it will post to.
+    </li>
+    <li>
+      <strong>An event image, if you add one.</strong> It is resized in your browser (which also
+      removes hidden details such as the location a photo was taken) and stored with Cloudinary,
+      the image host Rally uses, so Buffer can load it when your posts go out. Its web address is
+      public, meaning anyone who has the exact link can open it, because Buffer has to be able to.
+      Rally keeps a record of your uploads for 90 days.
     </li>
   </ul>
   <p>
@@ -78,8 +85,8 @@ export function renderPrivacy(contactEmail = '') {
 
   <h2>Who else is involved</h2>
   <p>
-    Rally runs on Vercel (hosting) and keeps sessions in MongoDB Atlas (database), and it sends
-    your posts to Buffer. Each of them handles data under its own terms. Rally does not sell or
+    Rally runs on Vercel (hosting), keeps sessions in MongoDB Atlas (database), stores event images
+    with Cloudinary, and sends your posts to Buffer. Each of them handles data under its own terms. Rally does not sell or
     share your information with anyone else.
   </p>
 

@@ -1,8 +1,11 @@
 import { $, el, cap } from './dom.js';
 import { api } from './api.js';
-import { state, selectedChannels, overLimit, emit, on } from './state.js';
+import { state, selectedChannels, overLimit, needsImage, emit, on } from './state.js';
+import { ensureImageUploaded } from './image.js';
 
 let footRefreshers = []; // one small function per card that re-checks its character count
+let refreshTimer = null;
+let requestNumber = 0;
 
 // ---------- The event form ----------
 function setupForm() {
@@ -17,35 +20,80 @@ function setupForm() {
   const pad = (n) => String(n).padStart(2, '0');
   $('startsLocal').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`;
 
-  $('form').addEventListener('submit', buildCampaign);
+  // The campaign updates by itself shortly after the user stops typing.
+  $('form').addEventListener('submit', (e) => e.preventDefault());
+  $('form').addEventListener('input', queueRefresh);
+  $('form').addEventListener('change', queueRefresh);
 }
 
-async function buildCampaign(event) {
-  event.preventDefault();
-  $('error').textContent = '';
-  const body = {
-    title: $('title').value,
-    description: $('description').value,
-    startsLocal: $('startsLocal').value,
-    timezone: $('timezone').value,
-    venue: $('venue').value,
-    link: $('link').value,
-    hashtag: $('hashtag').value,
-    speakers: $('speakers').value.split(',').map((s) => s.trim()).filter(Boolean),
-  };
+const readForm = () => ({
+  title: $('title').value,
+  description: $('description').value,
+  startsLocal: $('startsLocal').value,
+  timezone: $('timezone').value,
+  venue: $('venue').value,
+  link: $('link').value,
+  hashtag: $('hashtag').value,
+  speakers: $('speakers').value.split(',').map((s) => s.trim()).filter(Boolean),
+});
+
+function queueRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refreshPreview, 300);
+}
+
+// Keeps what the user already did (their edits, unticked posts, posts already scheduled)
+// when the event details change and the posts are written again.
+function mergeCampaign(previous, fresh) {
+  const before = new Map(previous.map((p) => [p.type, p]));
+  const merged = fresh.map((p) => {
+    const old = before.get(p.type);
+    if (old?.status === 'scheduled') return old; // already sent to Buffer: never change it
+    return {
+      ...p,
+      text: old?.edited ? old.text : p.text,
+      edited: Boolean(old?.edited),
+      unticked: Boolean(old?.unticked),
+      include: !p.skipped && !p.needsInput && !old?.unticked,
+      status: null,
+      message: '',
+    };
+  });
+  for (const old of previous) {
+    if (old.status === 'scheduled' && !merged.some((p) => p.type === old.type)) merged.push(old);
+  }
+  return merged;
+}
+
+async function refreshPreview() {
+  const body = readForm();
+  const ticket = ++requestNumber;
+
+  if (!body.title.trim() || !body.startsLocal) {
+    $('error').textContent = '';
+    if (!state.campaign.some((p) => p.status === 'scheduled')) state.campaign = [];
+    return renderPosts();
+  }
+
   const { ok, data } = await api('/api/preview', { method: 'POST', body });
+  if (ticket !== requestNumber) return; // a newer answer is on its way
   if (!ok) {
     $('error').textContent = data.error || 'Something went wrong.';
     return;
   }
+  $('error').textContent = '';
   state.campaignTitle = body.title.trim();
-  state.campaign = data.posts.map((p) => ({ ...p, include: !p.skipped && !p.needsInput, status: null, message: '' }));
-  showMessage('');
+  state.campaign = mergeCampaign(state.campaign, data.posts);
   renderPosts();
-  $('results').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ---------- The post cards ----------
+// ---------- The timeline of post cards ----------
+// Makes a post's text box as tall as its text, so the whole post is visible.
+function fitTextarea(box) {
+  box.style.height = 'auto';
+  if (box.scrollHeight > 0) box.style.height = `${box.scrollHeight + 4}px`;
+}
+
 function statusControls(p) {
   if (p.status === 'scheduled') return el('span', { class: 'badge ok' }, 'Scheduled ✓');
   if (p.skipped) return el('span', { class: 'badge warn' }, 'Time already passed');
@@ -60,6 +108,7 @@ function statusControls(p) {
       on: {
         change: (e) => {
           p.include = e.target.checked;
+          p.unticked = !e.target.checked;
           updateSummary();
         },
       },
@@ -86,18 +135,20 @@ function postCard(p) {
   footRefreshers.push(refresh);
   textarea.addEventListener('input', () => {
     p.text = textarea.value;
+    p.edited = true;
+    fitTextarea(textarea);
     refresh();
     updateSummary();
   });
   refresh();
 
   return el(
-    'div',
-    { class: 'card post' + (p.skipped ? ' skipped' : '') },
+    'article',
+    { class: 'post' + (p.skipped ? ' skipped' : '') + (p.status === 'scheduled' ? ' done' : '') },
     el(
       'div',
       { class: 'post-head' },
-      el('div', {}, el('strong', {}, p.label), el('div', { class: 'when' }, p.dueAtLocal)),
+      el('div', {}, el('strong', {}, p.label), el('span', { class: 'when' }, p.dueAtLocal)),
       statusControls(p)
     ),
     textarea,
@@ -106,10 +157,19 @@ function postCard(p) {
   );
 }
 
+function emptyState() {
+  return el(
+    'div',
+    { class: 'empty' },
+    'Your campaign will appear here.',
+    el('span', {}, 'Start with the event name and date. The posts are written as you type.')
+  );
+}
+
 function renderPosts() {
-  $('results').hidden = false;
   footRefreshers = [];
-  $('posts').replaceChildren(...state.campaign.map(postCard));
+  $('posts').replaceChildren(...(state.campaign.length ? state.campaign.map(postCard) : [emptyState()]));
+  requestAnimationFrame(() => $('posts').querySelectorAll('textarea').forEach(fitTextarea));
   updateSummary();
 }
 
@@ -118,25 +178,33 @@ const postsToSend = () =>
   state.campaign.filter((p) => p.include && p.status !== 'scheduled' && !p.skipped && !p.needsInput);
 
 function updateSummary() {
-  if (!state.campaign.length) return;
   const chosen = selectedChannels();
   const n = postsToSend().length;
   const c = chosen.length;
   const done = state.campaign.filter((p) => p.status === 'scheduled').length;
 
-  let text = `${n} post${n === 1 ? '' : 's'} ready`;
-  if (state.connection.connected) text += ` for ${c} channel${c === 1 ? '' : 's'}`;
-  if (done) text += `, ${done} already scheduled`;
-  $('summary').textContent = `${text}. The recap comes after the event.`;
+  if (!state.campaign.length) {
+    $('summary').textContent = '';
+  } else {
+    let text = `${n} post${n === 1 ? '' : 's'} ready`;
+    if (state.connection.connected) text += ` for ${c} channel${c === 1 ? '' : 's'}`;
+    if (done) text += `, ${done} already scheduled`;
+    $('summary').textContent = `${text}. The recap comes after the event.`;
+  }
 
   const tooLong = postsToSend().some((p) => overLimit(p.text, chosen));
+  const missingImage = chosen.find((ch) => needsImage(ch) && !state.image);
   const button = $('scheduleBtn');
-  button.disabled = !state.connection.connected || n === 0 || c === 0 || tooLong;
-  button.textContent = !state.connection.connected
-    ? 'Connect Buffer to schedule'
+  button.disabled = !state.connection.connected || n === 0 || c === 0 || tooLong || Boolean(missingImage);
+  button.textContent = !state.campaign.length
+    ? 'Add your event to get started'
     : tooLong
       ? 'Some posts are too long'
-      : `Schedule ${n} post${n === 1 ? '' : 's'} on ${c} channel${c === 1 ? '' : 's'}`;
+      : missingImage
+        ? `${missingImage.name} needs an image`
+        : c === 0
+          ? 'Choose at least one channel'
+          : `Schedule ${n} post${n === 1 ? '' : 's'} on ${c} channel${c === 1 ? '' : 's'}`;
 }
 
 function refreshAll() {
@@ -159,11 +227,26 @@ async function schedule() {
   const names = chosen.map((c) => `${c.name} (${cap(c.service)})`).join(', ');
   const confirmed = confirm(
     `Schedule ${send.length} post${send.length === 1 ? '' : 's'} on: ${names}?\n\n` +
+      (state.image ? 'Your event image will be attached to every post.\n' : '') +
       'They will be published publicly at the times shown. You can delete them in Buffer before then.'
   );
   if (!confirmed) return;
 
   $('scheduleBtn').disabled = true;
+
+  if (state.image && !state.image.uploadedUrl) {
+    showMessage('Uploading the image…');
+    const upload = await ensureImageUploaded();
+    if (upload.status === 401) {
+      emit('session-expired', 'Your session ended. Please connect again.');
+      showMessage('Your session ended. Connect again, then try once more.', 'bad');
+      return updateSummary();
+    }
+    if (!upload.ok) {
+      showMessage(upload.data?.error || 'The image could not be uploaded.', 'bad');
+      return updateSummary();
+    }
+  }
   showMessage('Scheduling… this can take a few seconds.');
 
   const { ok, status, data } = await api('/api/schedule', {
@@ -172,6 +255,7 @@ async function schedule() {
       organizationId: state.currentOrgId,
       channelIds: chosen.map((c) => c.id),
       eventTitle: state.campaignTitle,
+      imageUrl: state.image?.uploadedUrl || undefined,
       posts: send.map(({ type, label, text, dueAtUtc }) => ({ type, label, text, dueAtUtc })),
     },
   });
@@ -190,9 +274,7 @@ async function schedule() {
       post.status = r.status === 'scheduled' ? 'scheduled' : 'failed';
       post.message = r.message || '';
     }
-    state.connection.requestsLeftToday = data.requestsLeftToday;
     renderPosts();
-    emit('connection-changed');
 
     const failed = data.results.filter((r) => r.status !== 'scheduled').length;
     const succeeded = data.results.length - failed;
@@ -202,7 +284,7 @@ async function schedule() {
       );
     } else {
       showMessage(
-        `${succeeded} scheduled, ${failed} did not go through. See the cards below. If a message says Buffer could not be reached, check Buffer before trying again, so you do not post twice.`,
+        `${succeeded} scheduled, ${failed} did not go through. See the cards above. If a message says Buffer could not be reached, check Buffer before trying again, so you do not post twice.`,
         'bad'
       );
     }
@@ -215,4 +297,6 @@ export function initCampaign() {
   $('scheduleBtn').addEventListener('click', schedule);
   on('channels-changed', refreshAll);
   on('connection-changed', updateSummary);
+  on('image-changed', updateSummary);
+  refreshPreview(); // the default date is filled in, so wait for a name
 }

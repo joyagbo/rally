@@ -1,4 +1,4 @@
-import { limitFor, countFor, TEXT_ONLY_UNSUPPORTED } from './limits.js';
+import { limitFor, countFor, TEXT_ONLY_UNSUPPORTED, NEEDS_IMAGE } from './limits.js';
 
 // Everything the page needs to remember, in one place.
 export const state = {
@@ -8,11 +8,14 @@ export const state = {
   selectedChannelIds: new Set(),
   campaign: [],
   campaignTitle: '',
+  image: null, // { blob, previewUrl, uploadedUrl } once the user picks an event image
 };
 
 export const selectedChannels = () => state.channels.filter((c) => state.selectedChannelIds.has(c.id));
 
 export const needsVideo = (channel) => TEXT_ONLY_UNSUPPORTED.includes(String(channel.service).toLowerCase());
+
+export const needsImage = (channel) => NEEDS_IMAGE.includes(String(channel.service).toLowerCase());
 
 // The first chosen channel whose character limit this text would break, if any.
 export function overLimit(text, chosen) {

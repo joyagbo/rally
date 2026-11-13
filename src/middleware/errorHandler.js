@@ -12,6 +12,7 @@ export async function errorHandler(err, req, res, next) {
     return res.status(401).json({ error: 'not_connected' });
   }
   if (err instanceof ApiError) return res.status(err.status).json({ error: err.message });
+  if (err.status === 413) return res.status(413).json({ error: 'That file is too large.' });
   if (err.status && err.status < 500) return res.status(err.status).json({ error: 'Bad request.' });
 
   console.error(err);

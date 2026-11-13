@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import accountRoutes from './routes/account.js';
 import campaignRoutes from './routes/campaign.js';
 import pageRoutes from './routes/pages.js';
+import imageRoutes from './routes/images.js';
 
 // Safety net: log unexpected errors instead of letting one bad request stop the server.
 process.on('unhandledRejection', (err) => console.error('Unhandled error:', err));
@@ -24,6 +25,7 @@ app.use(authRoutes);
 app.use(accountRoutes);
 app.use(campaignRoutes);
 app.use(pageRoutes);
+app.use(imageRoutes);
 
 app.use(errorHandler);
 

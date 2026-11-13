@@ -1,10 +1,22 @@
-import { limitFor, countFor, TEXT_ONLY_UNSUPPORTED } from '../../public/js/limits.js';
+import { limitFor, countFor, TEXT_ONLY_UNSUPPORTED, NEEDS_IMAGE } from '../../public/js/limits.js';
 import { ApiError, AuthError } from '../lib/errors.js';
 
 const lit = JSON.stringify; // JSON strings are valid GraphQL string literals
 
+// The part of a post that attaches the event image (Buffer opens this web address itself)
+const assetsField = (imageUrl) => (imageUrl ? `, assets: [{ image: { url: ${lit(imageUrl)} } }]` : '');
+
+// Only images this account uploaded through Rally may be attached.
+async function resolveImage(url, session, images) {
+  const image = await images.getByUrl(url);
+  if (!image || image.owner !== session.account?.id) {
+    throw new ApiError('That image could not be found. Please upload it again.', 400);
+  }
+  return url;
+}
+
 // Checks a schedule request before anything is sent to Buffer.
-export function validateScheduleRequest(body, session) {
+export async function validateScheduleRequest(body, session, { images }) {
   const { organizationId, channelIds, eventTitle, posts } = body ?? {};
   const bad = (msg) => new ApiError(msg, 400);
 
@@ -19,6 +31,10 @@ export function validateScheduleRequest(body, session) {
   if (unsupported) {
     throw bad(`${unsupported.name} (${unsupported.service}) needs a video, so it cannot be used for text posts yet.`);
   }
+
+  const imageUrl = body?.imageUrl ? await resolveImage(String(body.imageUrl), session, images) : null;
+  const needsImage = chosen.find((c) => NEEDS_IMAGE.includes(String(c.service).toLowerCase()));
+  if (needsImage && !imageUrl) throw bad(`${needsImage.name} (${needsImage.service}) needs an image. Add an event image first.`);
 
   if (!Array.isArray(posts) || posts.length < 1 || posts.length > 8) throw bad('Send between 1 and 8 posts.');
 
@@ -42,11 +58,11 @@ export function validateScheduleRequest(body, session) {
     return item;
   });
 
-  return { organizationId, chosen, clean, title: String(eventTitle ?? 'Event').slice(0, 80) };
+  return { organizationId, chosen, clean, imageUrl, title: String(eventTitle ?? 'Event').slice(0, 80) };
 }
 
 // Plan B: one ordinary post per channel
-async function createPostsIndividually(client, chosen, p, due) {
+async function createPostsIndividually(client, chosen, p, due, imageUrl) {
   const done = [];
   const failed = [];
   for (const c of chosen) {
@@ -54,7 +70,7 @@ async function createPostsIndividually(client, chosen, p, due) {
       `mutation {
          createPost(input: {
            text: ${lit(p.text)}, channelId: ${lit(c.id)},
-           schedulingType: automatic, mode: customScheduled, dueAt: ${lit(due)}
+           schedulingType: automatic, mode: customScheduled, dueAt: ${lit(due)}${assetsField(imageUrl)}
          }) {
            ... on PostActionSuccess { post { id dueAt } }
            ... on MutationError { message }
@@ -73,12 +89,12 @@ async function createPostsIndividually(client, chosen, p, due) {
 }
 
 // One campaign post -> one content item covering every chosen channel
-async function scheduleOne(client, { organizationId, chosen, title }, p) {
+async function scheduleOne(client, { organizationId, chosen, title, imageUrl }, p) {
   const due = p.dueAt.toISOString();
   const variants = chosen
     .map(
       (c) =>
-        `{ channelId: ${lit(c.id)}, text: ${lit(p.text)}, schedulingType: automatic, mode: customScheduled, dueAt: ${lit(due)} }`
+        `{ channelId: ${lit(c.id)}, text: ${lit(p.text)}, schedulingType: automatic, mode: customScheduled, dueAt: ${lit(due)}${assetsField(imageUrl)} }`
     )
     .join(', ');
 
@@ -113,7 +129,7 @@ async function scheduleOne(client, { organizationId, chosen, title }, p) {
     // rejects the request itself, fall back to one plain post per channel.
     if (err instanceof ApiError && err.status === 502) {
       console.error('createContentItem failed, falling back to createPost:', err.message);
-      return createPostsIndividually(client, chosen, p, due);
+      return createPostsIndividually(client, chosen, p, due, imageUrl);
     }
     throw err;
   }

@@ -1,6 +1,6 @@
 import { $, el, cap } from './dom.js';
 import { api } from './api.js';
-import { state, needsVideo, emit, on } from './state.js';
+import { state, needsVideo, needsImage, emit, on } from './state.js';
 
 // Sentences for each reason the server can give. The page never prints text from the address bar.
 const LOGIN_ERRORS = {
@@ -25,30 +25,23 @@ function readLoginNotice() {
 }
 let loginNotice = '';
 
-// ---- The "Connected as ..." bar ----
+// ---- The account chip in the top bar, and which part of "Send it" is shown ----
 function renderConnection(message) {
   const bar = $('connectBar');
   bar.textContent = '';
 
-  if (!state.connection.connected) {
-    $('channelsCard').hidden = true;
-    bar.append(
-      el(
-        'div',
-        { class: message ? 'notice' : '' },
-        message || 'Connect your Buffer account to choose channels and schedule posts.'
-      ),
-      el('a', { class: 'btn', href: '/login' }, 'Connect your Buffer account')
-    );
+  $('noticeBar').textContent = message || '';
+  $('noticeBar').hidden = !message;
+
+  const { connected, account } = state.connection;
+  $('sendLocked').hidden = connected;
+  $('sendReady').hidden = !connected;
+
+  if (!connected) {
+    bar.append(el('a', { class: 'btn', href: '/login' }, 'Connect Buffer'));
   } else {
-    const { account, requestsLeftToday } = state.connection;
     bar.append(
-      el(
-        'div',
-        {},
-        el('div', { class: 'who' }, `Connected as ${account.email}`),
-        requestsLeftToday != null && el('div', { class: 'small' }, `Buffer requests left today: ${requestsLeftToday}`)
-      ),
+      el('span', { class: 'who' }, account.email),
       el('button', { type: 'button', class: 'secondary', on: { click: disconnect } }, 'Disconnect')
     );
   }
@@ -64,11 +57,10 @@ async function disconnect() {
   emit('channels-changed');
 }
 
-// ---- The channel checklist ----
+// ---- The channel chips ----
 function renderChannels() {
   const list = $('channelList');
   list.textContent = '';
-  $('channelsCard').hidden = false;
   $('channelNote').textContent = state.channels.length === 0
     ? 'No channels found. Connect a channel in Buffer, then refresh.'
     : '';
@@ -90,11 +82,12 @@ function renderChannels() {
     list.append(
       el(
         'label',
-        { class: 'chan' },
+        { class: 'chip' + (blocked ? ' is-blocked' : '') },
         checkbox,
-        el('span', { class: 'name' }, ch.name),
-        el('span', { class: 'badge' }, cap(ch.service)),
+        el('span', {}, ch.name),
+        el('span', { class: 'chip-service' }, cap(ch.service)),
         blocked && el('span', { class: 'badge warn' }, 'Needs a video'),
+        !blocked && needsImage(ch) && el('span', { class: 'badge warn' }, 'Needs an image'),
         !blocked && ch.isQueuePaused && el('span', { class: 'badge warn' }, 'Queue paused')
       )
     );
@@ -113,15 +106,13 @@ async function loadChannels(organizationId, refresh = false) {
   }
   if (!ok) {
     $('channelNote').textContent = data.error || 'Could not load channels.';
-    $('channelsCard').hidden = false;
     return;
   }
   state.channels = data.channels;
   if (!refresh && state.selectedChannelIds.size === 0) {
-    state.channels.filter((c) => !needsVideo(c)).forEach((c) => state.selectedChannelIds.add(c.id));
+    // Channels that need a video or an image are left unticked until the user chooses them.
+    state.channels.filter((c) => !needsVideo(c) && !needsImage(c)).forEach((c) => state.selectedChannelIds.add(c.id));
   }
-  state.connection.requestsLeftToday = data.requestsLeftToday;
-  renderConnection();
   renderChannels();
 }
 

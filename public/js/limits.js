@@ -16,8 +16,11 @@ export const LIMITS = {
   substack: 10000,
 };
 
-// YouTube posts need a video, and this app only writes text.
-export const TEXT_ONLY_UNSUPPORTED = ['youtube'];
+// These networks need a video, and Rally only writes text and images.
+export const TEXT_ONLY_UNSUPPORTED = ['youtube', 'tiktok'];
+
+// These networks do not accept a post without an image.
+export const NEEDS_IMAGE = ['instagram', 'pinterest'];
 
 const URL_RE = /https?:\/\/\S+/g;
 

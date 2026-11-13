@@ -14,6 +14,13 @@ export const config = {
   mongoUri: env.MONGODB_URI || '',
   // Optional. Shown on the privacy page. Kept in settings so it never goes into the code.
   contactEmail: (env.CONTACT_EMAIL || '').trim(),
+  // Where event images are stored. Optional: without these, images are simply unavailable.
+  cloudinary: {
+    cloudName: env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: env.CLOUDINARY_API_KEY || '',
+    apiSecret: env.CLOUDINARY_API_SECRET || '',
+    apiUrl: env.CLOUDINARY_API_URL || 'https://api.cloudinary.com',
+  },
   buffer: {
     clientId: env.BUFFER_CLIENT_ID || '',
     clientSecret: env.BUFFER_CLIENT_SECRET || '',
@@ -36,3 +43,6 @@ export function missingConfig() {
   }
   return missing;
 }
+
+export const imagesConfigured = () =>
+  Boolean(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);

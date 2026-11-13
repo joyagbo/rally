@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=.env src/dev-server.js",
-    "demo": "node scripts/demo.js"
+    "dev": "node --env-file=.env src/dev-server.js"
   },
   "dependencies": {
     "express": "^4.21.0",

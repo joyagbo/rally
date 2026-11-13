@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { ApiError } from '../lib/errors.js';
+import { images } from '../store/index.js';
 import { loadSession, requireSession } from '../middleware/session.js';
 import { buildCampaign } from '../services/planner.js';
 import { validateScheduleRequest, scheduleAll } from '../services/scheduler.js';
@@ -34,7 +35,7 @@ router.post(
   loadSession,
   requireSession,
   asyncHandler(async (req, res) => {
-    const plan = validateScheduleRequest(req.body, req.session);
+    const plan = await validateScheduleRequest(req.body, req.session, { images });
     const results = await scheduleAll(req.buffer, plan);
     res.json({ results, requestsLeftToday: req.buffer.requestsLeftToday() });
   })
