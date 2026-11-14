@@ -546,6 +546,51 @@ button.secondary:hover:not(:disabled) {
   color: var(--bad);
 }
 
+/* ---------- Image controls on each post ---------- */
+.post-image {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.post-thumb {
+  flex: none;
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--tint);
+}
+.post-thumb-empty {
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  border-style: dashed;
+}
+.post-image-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.post-image-body strong {
+  font-size: 0.9rem;
+}
+.post-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+@media (max-width: 560px) {
+  .post-image {
+    flex-direction: column;
+  }
+}
+
 /* ==========================================================================
    Send panel: channel chips
    ========================================================================== */
