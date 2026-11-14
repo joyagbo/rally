@@ -4,10 +4,10 @@ import { state, needsVideo, needsImage, emit, on } from './state.js';
 
 // Sentences for each reason the server can give. The page never prints text from the address bar.
 const LOGIN_ERRORS = {
-  denied: 'The connection was cancelled. Connect again when you are ready.',
-  expired: 'That login took too long or was interrupted. Please connect again.',
-  rejected: 'Buffer did not accept the login. Please try again.',
-  unreachable: 'Rally could not reach Buffer. Check your internet connection and try again.',
+  denied: 'No problem, you cancelled the connection. Connect again whenever you’re ready.',
+  expired: 'That login timed out. Please connect again.',
+  rejected: 'Buffer didn’t accept the login. Please try again.',
+  unreachable: 'Rally couldn’t reach Buffer. Check your internet connection and try again.',
   failed: 'Something went wrong while connecting. Please try again.',
 };
 const WRONG_ADDRESS =
@@ -62,7 +62,7 @@ function renderChannels() {
   const list = $('channelList');
   list.textContent = '';
   $('channelNote').textContent = state.channels.length === 0
-    ? 'No channels found. Connect a channel in Buffer, then refresh.'
+    ? 'No channels yet. Add one in Buffer, then tap Refresh.'
     : '';
 
   for (const ch of state.channels) {
@@ -105,7 +105,7 @@ async function loadChannels(organizationId, refresh = false) {
     return renderConnection('Your session ended. Please connect again.');
   }
   if (!ok) {
-    $('channelNote').textContent = data.error || 'Could not load channels.';
+    $('channelNote').textContent = data.error || 'We couldn’t load your channels.';
     return;
   }
   state.channels = data.channels;

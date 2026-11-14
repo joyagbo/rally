@@ -11,6 +11,17 @@ export const state = {
   image: null, // { blob, previewUrl, uploadedUrl } once the user picks an event image
 };
 
+// Every post can use the event's cover image, its own photo, or no image.
+export const newPostImage = () => ({ mode: 'cover', custom: null });
+
+// The image a post will actually be sent with (or null).
+export function imageFor(post) {
+  const choice = post.image ?? newPostImage();
+  if (choice.mode === 'none') return null;
+  if (choice.mode === 'custom' && choice.custom) return choice.custom;
+  return state.image; // 'cover': the event's cover image, if one was added
+}
+
 export const selectedChannels = () => state.channels.filter((c) => state.selectedChannelIds.has(c.id));
 
 export const needsVideo = (channel) => TEXT_ONLY_UNSUPPORTED.includes(String(channel.service).toLowerCase());

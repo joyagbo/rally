@@ -32,21 +32,27 @@ export async function validateScheduleRequest(body, session, { images }) {
     throw bad(`${unsupported.name} (${unsupported.service}) needs a video, so it cannot be used for text posts yet.`);
   }
 
-  const imageUrl = body?.imageUrl ? await resolveImage(String(body.imageUrl), session, images) : null;
+  // Each post can carry its own image. A post with no "imageUrl" key falls back to the
+  // campaign-wide one (older requests); "imageUrl: null" means this post has no image.
+  const defaultImageUrl = body?.imageUrl ? await resolveImage(String(body.imageUrl), session, images) : null;
   const needsImage = chosen.find((c) => NEEDS_IMAGE.includes(String(c.service).toLowerCase()));
-  if (needsImage && !imageUrl) throw bad(`${needsImage.name} (${needsImage.service}) needs an image. Add an event image first.`);
 
   if (!Array.isArray(posts) || posts.length < 1 || posts.length > 8) throw bad('Send between 1 and 8 posts.');
 
   const minTime = Date.now() + 5 * 60_000;
-  const clean = posts.map((p) => {
+  const clean = [];
+  for (const p of posts) {
     const item = {
       type: String(p.type ?? ''),
       label: String(p.label ?? 'Post').slice(0, 80),
       text: String(p.text ?? '').trim(),
       dueAt: new Date(p.dueAtUtc),
+      imageUrl: 'imageUrl' in p ? (p.imageUrl ? await resolveImage(String(p.imageUrl), session, images) : null) : defaultImageUrl,
     };
     if (!item.text) throw bad(`"${item.label}" has no text.`);
+    if (needsImage && !item.imageUrl) {
+      throw bad(`"${item.label}" needs an image for ${needsImage.name} (${needsImage.service}). Add a cover image or a photo for this post.`);
+    }
     if (Number.isNaN(item.dueAt.getTime()) || item.dueAt.getTime() < minTime) {
       throw bad(`"${item.label}" is scheduled in the past. Pick a later event date.`);
     }
@@ -55,10 +61,10 @@ export async function validateScheduleRequest(body, session, { images }) {
       const count = countFor(c.service, item.text);
       if (limit && count > limit) throw bad(`"${item.label}" is too long for ${c.name} (${count}/${limit} characters).`);
     }
-    return item;
-  });
+    clean.push(item);
+  }
 
-  return { organizationId, chosen, clean, imageUrl, title: String(eventTitle ?? 'Event').slice(0, 80) };
+  return { organizationId, chosen, clean, title: String(eventTitle ?? 'Event').slice(0, 80) };
 }
 
 // Plan B: one ordinary post per channel
@@ -89,7 +95,8 @@ async function createPostsIndividually(client, chosen, p, due, imageUrl) {
 }
 
 // One campaign post -> one content item covering every chosen channel
-async function scheduleOne(client, { organizationId, chosen, title, imageUrl }, p) {
+async function scheduleOne(client, { organizationId, chosen, title }, p) {
+  const imageUrl = p.imageUrl;
   const due = p.dueAt.toISOString();
   const variants = chosen
     .map(

@@ -11,7 +11,7 @@ import { uploadToCloudinary } from '../services/cloudinary.js';
 const router = Router();
 
 const MAX_BYTES = 3 * 1024 * 1024; // the page shrinks images well below this
-const MAX_PER_ACCOUNT = 20;
+const MAX_PER_ACCOUNT = 60; // a campaign can use a cover plus a photo per post
 const KEEP_RECORD_DAYS = 90;
 
 // Upload one image. Returns the public address Buffer will use.

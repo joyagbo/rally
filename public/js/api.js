@@ -9,7 +9,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, status: res.status, data };
   } catch {
-    return { ok: false, status: 0, data: { error: 'Could not reach the server. Is it running?' } };
+    return { ok: false, status: 0, data: { error: 'We couldn’t reach Rally. Check your internet connection and try again.' } };
   }
 }
 
@@ -24,6 +24,6 @@ export async function uploadImage(blob) {
     const data = await res.json().catch(() => ({}));
     return { ok: res.ok, status: res.status, data };
   } catch {
-    return { ok: false, status: 0, data: { error: 'Could not reach the server. Is it running?' } };
+    return { ok: false, status: 0, data: { error: 'We couldn’t reach Rally. Check your internet connection and try again.' } };
   }
 }

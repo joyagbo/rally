@@ -1,7 +1,8 @@
 import { $, el, cap } from './dom.js';
 import { api } from './api.js';
-import { state, selectedChannels, overLimit, needsImage, emit, on } from './state.js';
-import { ensureImageUploaded } from './image.js';
+import { state, selectedChannels, overLimit, needsImage, emit, on, newPostImage, imageFor } from './state.js';
+import { ensureImagesUploaded, shrink } from './image.js';
+import { burst } from './confetti.js';
 
 let footRefreshers = []; // one small function per card that re-checks its character count
 let refreshTimer = null;
@@ -57,6 +58,7 @@ function mergeCampaign(previous, fresh) {
       include: !p.skipped && !p.needsInput && !old?.unticked,
       status: null,
       message: '',
+      image: old?.image ?? newPostImage(),
     };
   });
   for (const old of previous) {
@@ -96,8 +98,8 @@ function fitTextarea(box) {
 
 function statusControls(p) {
   if (p.status === 'scheduled') return el('span', { class: 'badge ok' }, 'Scheduled ✓');
-  if (p.skipped) return el('span', { class: 'badge warn' }, 'Time already passed');
-  if (p.needsInput) return el('span', { class: 'badge' }, 'Written after the event');
+  if (p.skipped) return el('span', { class: 'badge warn' }, 'Time has passed');
+  if (p.needsInput) return el('span', { class: 'badge' }, 'Written after your event');
 
   const include = el(
     'label',
@@ -118,11 +120,76 @@ function statusControls(p) {
   return el('div', { class: 'post-actions' }, p.status === 'failed' && el('span', { class: 'badge bad' }, 'Not scheduled'), include);
 }
 
+// ---------- Each post's image: the cover, its own photo, or none ----------
+function imageControls(p) {
+  const choice = p.image ?? newPostImage();
+  const current = imageFor(p);
+  const note = el('div', { class: 'error', role: 'alert' }, p.imageNote || '');
+  p.imageNote = '';
+
+  const picker = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true });
+  picker.addEventListener('change', async () => {
+    const file = picker.files[0];
+    if (!file) return;
+    try {
+      const prepared = await shrink(file);
+      if (choice.custom?.previewUrl) URL.revokeObjectURL(choice.custom.previewUrl);
+      p.image = { mode: 'custom', custom: { ...prepared, uploadedUrl: null } };
+    } catch (err) {
+      p.imageNote = err.message;
+    }
+    renderPosts();
+  });
+
+  const setMode = (mode) => () => {
+    p.image = { mode, custom: choice.custom };
+    renderPosts();
+  };
+
+  const status =
+    choice.mode === 'custom'
+      ? 'Using this post’s own photo'
+      : choice.mode === 'none'
+        ? 'No image on this post'
+        : state.image
+          ? 'Using your cover image'
+          : 'No image yet';
+  const tip =
+    p.type === 'speakers' && choice.mode !== 'custom'
+      ? el('div', { class: 'small' }, 'Tip: add a photo of your speaker so this post stands out.')
+      : null;
+
+  return el(
+    'div',
+    { class: 'post-image' },
+    current
+      ? el('img', { class: 'post-thumb', src: current.previewUrl, alt: '' })
+      : el('div', { class: 'post-thumb post-thumb-empty', 'aria-hidden': 'true' }, '🖼'),
+    el(
+      'div',
+      { class: 'post-image-body' },
+      el('strong', {}, 'Image'),
+      el('span', { class: 'small' }, status),
+      tip,
+      el(
+        'div',
+        { class: 'post-image-actions' },
+        el('button', { type: 'button', class: 'secondary', on: { click: () => picker.click() } },
+          choice.mode === 'custom' ? 'Change photo' : 'Add a photo'),
+        choice.mode !== 'cover' && el('button', { type: 'button', class: 'secondary', on: { click: setMode('cover') } }, 'Use cover image'),
+        choice.mode !== 'none' && el('button', { type: 'button', class: 'secondary', on: { click: setMode('none') } }, 'No image')
+      ),
+      picker,
+      note
+    )
+  );
+}
+
 function postCard(p) {
   const textarea = el('textarea', {
     value: p.text,
     disabled: p.skipped || p.status === 'scheduled',
-    placeholder: p.needsInput ? 'After the event, add your highlights here and we will help you write the recap.' : '',
+    placeholder: p.needsInput ? 'The recap isn’t scheduled with the other posts. Write it after your event.' : '',
   });
   const counter = el('span');
   const refresh = () => {
@@ -153,6 +220,7 @@ function postCard(p) {
     ),
     textarea,
     el('div', { class: 'foot' }, counter),
+    !p.skipped && !p.needsInput && p.status !== 'scheduled' && imageControls(p),
     p.status === 'failed' && p.message && el('div', { class: 'failmsg' }, p.message)
   );
 }
@@ -161,8 +229,8 @@ function emptyState() {
   return el(
     'div',
     { class: 'empty' },
-    'Your campaign will appear here.',
-    el('span', {}, 'Start with the event name and date. The posts are written as you type.')
+    'Your posts will show up here.',
+    el('span', {}, 'Add your event name and date and Rally starts writing right away.')
   );
 }
 
@@ -193,17 +261,19 @@ function updateSummary() {
   }
 
   const tooLong = postsToSend().some((p) => overLimit(p.text, chosen));
-  const missingImage = chosen.find((ch) => needsImage(ch) && !state.image);
+  const needy = chosen.find(needsImage);
+  const postWithoutImage = needy && postsToSend().find((p) => !imageFor(p));
+  const missingImage = postWithoutImage ? { name: needy.name, post: postWithoutImage.label } : null;
   const button = $('scheduleBtn');
   button.disabled = !state.connection.connected || n === 0 || c === 0 || tooLong || Boolean(missingImage);
   button.textContent = !state.campaign.length
-    ? 'Add your event to get started'
+    ? 'Add your event to begin'
     : tooLong
-      ? 'Some posts are too long'
+      ? 'Some posts are too long to send'
       : missingImage
-        ? `${missingImage.name} needs an image`
+        ? `${missingImage.name} needs an image on “${missingImage.post}”`
         : c === 0
-          ? 'Choose at least one channel'
+          ? 'Pick a channel to send to'
           : `Schedule ${n} post${n === 1 ? '' : 's'} on ${c} channel${c === 1 ? '' : 's'}`;
 }
 
@@ -227,27 +297,27 @@ async function schedule() {
   const names = chosen.map((c) => `${c.name} (${cap(c.service)})`).join(', ');
   const confirmed = confirm(
     `Schedule ${send.length} post${send.length === 1 ? '' : 's'} on: ${names}?\n\n` +
-      (state.image ? 'Your event image will be attached to every post.\n' : '') +
-      'They will be published publicly at the times shown. You can delete them in Buffer before then.'
+    (send.some(imageFor) ? `${send.filter(imageFor).length} of ${send.length} posts include an image.\n` : '') +
+    'They will be published publicly at the times shown. You can delete them in Buffer before then.'
   );
   if (!confirmed) return;
 
   $('scheduleBtn').disabled = true;
 
-  if (state.image && !state.image.uploadedUrl) {
-    showMessage('Uploading the image…');
-    const upload = await ensureImageUploaded();
+  if (send.some(imageFor)) {
+    showMessage('Uploading your images…');
+    const upload = await ensureImagesUploaded(send);
     if (upload.status === 401) {
       emit('session-expired', 'Your session ended. Please connect again.');
       showMessage('Your session ended. Connect again, then try once more.', 'bad');
       return updateSummary();
     }
     if (!upload.ok) {
-      showMessage(upload.data?.error || 'The image could not be uploaded.', 'bad');
+      showMessage(upload.data?.error || 'We couldn’t upload an image. Please try again.', 'bad');
       return updateSummary();
     }
   }
-  showMessage('Scheduling… this can take a few seconds.');
+  showMessage('Scheduling your posts… this takes a few seconds.');
 
   const { ok, status, data } = await api('/api/schedule', {
     method: 'POST',
@@ -255,8 +325,13 @@ async function schedule() {
       organizationId: state.currentOrgId,
       channelIds: chosen.map((c) => c.id),
       eventTitle: state.campaignTitle,
-      imageUrl: state.image?.uploadedUrl || undefined,
-      posts: send.map(({ type, label, text, dueAtUtc }) => ({ type, label, text, dueAtUtc })),
+      posts: send.map((p) => ({
+        type: p.type,
+        label: p.label,
+        text: p.text,
+        dueAtUtc: p.dueAtUtc,
+        imageUrl: imageFor(p)?.uploadedUrl || null,
+      })),
     },
   });
 
@@ -264,7 +339,7 @@ async function schedule() {
     emit('session-expired', 'Your session ended. Please connect again.');
     showMessage('Your session ended. Connect again, then try once more.', 'bad');
   } else if (status === 0) {
-    showMessage('Could not reach the server. Check Buffer before trying again, in case some posts went through.', 'bad');
+    showMessage('We couldn’t reach Rally. Check Buffer before trying again, in case some posts went through.', 'bad');
   } else if (!ok) {
     showMessage(data.error || 'Something went wrong.', 'bad');
   } else {
@@ -279,7 +354,8 @@ async function schedule() {
     const failed = data.results.filter((r) => r.status !== 'scheduled').length;
     const succeeded = data.results.length - failed;
     if (failed === 0) {
-      showMessage(`All ${succeeded} posts are scheduled. `, 'ok').append(
+      burst();
+      showMessage(`You’re all set! ${succeeded} posts are scheduled. `, 'ok').append(
         el('a', { href: 'https://publish.buffer.com', target: '_blank', rel: 'noopener' }, 'See them in Buffer')
       );
     } else {
@@ -297,6 +373,6 @@ export function initCampaign() {
   $('scheduleBtn').addEventListener('click', schedule);
   on('channels-changed', refreshAll);
   on('connection-changed', updateSummary);
-  on('image-changed', updateSummary);
+  on('image-changed', renderPosts);
   refreshPreview(); // the default date is filled in, so wait for a name
 }
